@@ -143,7 +143,7 @@ def generate_map():
                 <h4 style="margin:0 0 6px 0; color:#2c3e50;">Kec. {d['Kecamatan']}</h4>
                 {desa_info}<br>
                 <b>Total Warga Kec.:</b> {d['Total_Warga']:,} jiwa<br>
-                <b>Warga Teredukasi:</b> {d['Warga_Teredukasi']:,} jiwa (<b>{d['Persen_Edukasi']}%</b>)<br>
+                <b>Warga Prioritas Teredukasi:</b> {d['Warga_Teredukasi']:,} jiwa (<b>{d['Persen_Edukasi']}%</b>)<br>
                 <hr style="margin:6px 0;">
                 <b>Prioritas Penyuluhan:</b> {teks_prioritas}<br>
                 <b>Kelas Risiko BPBD:</b> {d['Kelas_Risiko']}
