@@ -148,10 +148,11 @@ def generate_map():
                 <b>Prioritas Penyuluhan:</b> {teks_prioritas}<br>
                 <b>Kelas Risiko BPBD:</b> {d['Kelas_Risiko']}
                 <hr style="margin:6px 0;">
-                <b>Rincian Kelompok Rentan:</b><br>
+                <b>Kelompok Rentan:</b><br>
                 • Balita & Lansia: {d['Rentan_Balita_Lansia']:,} jiwa<br>
                 • Penyandang Disabilitas: {d['Rentan_Disabilitas']:,} jiwa<br>
-                • Ibu Hamil / Menyusui: {d['Rentan_Ibu_Hamil']:,} jiwa
+                • Ibu Hamil / Menyusui: {d['Rentan_Ibu_Hamil']:,} jiwa<br>
+                • Jumlah Kelompok rentan: SUM({d['Rentan_Balita_Lansia']:,}{d['Rentan_Disabilitas']:,}{d['Rentan_Ibu_Hamil']:,}) jiwa
             </div>
             """
             tooltip_text = f"Kec. {d['Kecamatan']}" + (f' ({desa_name})' if desa_name else '')
