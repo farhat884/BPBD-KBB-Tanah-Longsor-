@@ -145,8 +145,7 @@ def generate_map():
                 <b>Total Warga Kec.:</b> {d['Total_Warga']:,} jiwa<br>
                 <b>Warga Prioritas Teredukasi:</b> {d['Warga_Teredukasi']:,} jiwa (<b>{d['Persen_Edukasi']}%</b>)<br>
                 <hr style="margin:6px 0;">
-                <b>Prioritas Penyuluhan:</b> {teks_prioritas}<br>
-                <b>Kelas Risiko BPBD:</b> {d['Kelas_Risiko']}
+                <b>Prioritas Penyuluhan:</b> {teks_prioritas}
                 <hr style="margin:6px 0;">
                 <b>Kelompok Rentan:</b><br>
                 • Balita & Lansia: {d['Rentan_Balita_Lansia']:,} jiwa<br>
