@@ -5,8 +5,17 @@ from sklearn.preprocessing import StandardScaler
 
 def clean_name(s):
     if not s: return ''
-    # Membersihkan kata "desa" dan "kecamatan" agar matching dengan GeoJSON
     return str(s).lower().replace('_', '').replace(' ', '').replace('kecamatan', '').replace('kec.', '').replace('desa', '').strip()
+
+# Fungsi khusus untuk membersihkan angka dari titik, koma, huruf, dan spasi
+def clean_number(val):
+    if pd.isna(val) or val == '': return 0
+    # Ubah ke string, hapus spasi, hapus koma, hapus titik
+    val_str = str(val).replace(' ', '').replace(',', '').replace('.', '')
+    try:
+        return int(val_str)
+    except:
+        return 0
 
 def get_ml_clustered_data(app_root_path):
     excel_path = os.path.join(app_root_path, 'data', 'Data_Desa_Longsor.xlsx')
@@ -22,20 +31,17 @@ def get_ml_clustered_data(app_root_path):
         desa_name = str(row.get('desa', '')).strip()
         if not desa_name or desa_name == 'nan': continue
         
-        key_clean = clean_name(desa_name)
-        
-        # Membersihkan format angka (menghapus koma ribuan jika terbaca sebagai string)
-        try:
-            total_warga = int(str(row.get('jumlah_penduduk', 0)).replace(',', ''))
-        except:
-            total_warga = 0
+        # Bersihkan format angka dengan fungsi baru yang lebih kebal
+        total_warga = clean_number(row.get('jumlah_penduduk', 0))
             
-        if total_warga <= 0: continue
+        if total_warga <= 0: 
+            print(f"⚠️ Melewati Desa {desa_name} karena jumlah penduduk 0 atau format angka salah.")
+            continue
 
-        teredukasi = int(str(row.get('teredukasi', 0)).replace(',', '')) if 'teredukasi' in row else 0
-        rentan_bl = int(str(row.get('umur_rentan', 0)).replace(',', ''))
-        rentan_miskin = int(str(row.get('miskin', 0)).replace(',', ''))
-        rentan_dis = int(str(row.get('disabilitas', 0)).replace(',', ''))
+        teredukasi = clean_number(row.get('teredukasi', 0)) if 'teredukasi' in row else 0
+        rentan_bl = clean_number(row.get('umur_rentan', 0))
+        rentan_miskin = clean_number(row.get('miskin', 0))
+        rentan_dis = clean_number(row.get('disabilitas', 0))
 
         records.append({
             'Kecamatan': str(row.get('kecamatan', '')).capitalize(),
@@ -46,16 +52,18 @@ def get_ml_clustered_data(app_root_path):
             'Rentan_Balita_Lansia': rentan_bl,
             'Rentan_Miskin': rentan_miskin,
             'Rentan_Disabilitas': rentan_dis,
-            'Kelas_Risiko': 'Tinggi' if total_warga > 5000 else 'Sedang', # Mockup Kelas Risiko
+            'Kelas_Risiko': 'Tinggi' if total_warga > 5000 else 'Sedang', 
             'Rasio_BL': (rentan_bl / total_warga) * 100,
             'Rasio_Miskin': (rentan_miskin / total_warga) * 100,
             'Rasio_Dis': (rentan_dis / total_warga) * 100
         })
 
     df = pd.DataFrame(records)
-    if df.empty: return df
+    if df.empty: 
+        print("⚠️ DataFrame kosong! Tidak ada data yang berhasil diproses.")
+        return df
 
-    # K-Means Clustering berdasarkan data desa
+    # K-Means Clustering
     features = ['Rasio_BL', 'Rasio_Miskin', 'Rasio_Dis', 'Persen_Edukasi']
     scaler = StandardScaler()
     X_scaled = scaler.fit_transform(df[features])
