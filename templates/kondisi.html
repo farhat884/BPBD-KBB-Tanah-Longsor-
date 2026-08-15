@@ -2,96 +2,145 @@
 <html lang="id">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Dashboard Peta Interaktif & Chat BPBD</title>
-    
-    <!-- Library untuk memproses Markdown dari Bot -->
+    <title>Sistem Informasi Mitigasi & Edukasi Bencana KBB</title>
+    <!-- Tambahkan library Marked.js untuk merapikan teks AI -->
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
-
     <style>
-        * { box-sizing: border-box; }
-        body { font-family: Arial, sans-serif; display: flex; margin: 0; height: 100vh; }
+        body { margin: 0; padding: 0; font-family: sans-serif; background-color: #0e1117; overflow: hidden; }
+        .header { background-color: #0e1117; color: #00ffcc; padding: 15px; text-align: center; border-bottom: 2px solid #00ffcc; letter-spacing: 1px; }
+        .map-container { width: 100%; height: calc(100vh - 65px); position: relative; }
         
-        /* Area Peta */
-        #map-container { flex: 2; position: relative; background: #eef2f3; padding: 20px; display: flex; align-items: center; justify-content: center; }
-        #hud { display: none; position: absolute; top: 20px; left: 50%; transform: translateX(-50%); background: rgba(0, 0, 0, 0.8); color: #fff; padding: 10px 20px; border-radius: 8px; font-weight: bold; z-index: 10; }
-        
-        /* Dummy Peta SVG */
-        svg { width: 100%; max-height: 80vh; }
-        path { transition: all 0.3s ease; stroke: #fff; stroke-width: 1px; fill: #555555; cursor: pointer; }
-        path:hover { fill-opacity: 0.7; }
+        /* === EFEK HUD TARGETING SCI-FI (AWALNYA SEMBUNYI) === */
+        #hud-overlay {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            pointer-events: none; /* Supaya peta tetap bisa diklik tembus */
+            z-index: 5000; display: none; 
+            box-shadow: inset 0 0 100px rgba(255, 0, 51, 0.5);
+            border: 4px solid rgba(255, 0, 51, 0.3);
+        }
+        .scan-line {
+            width: 100%; height: 2px; background-color: #ff0033;
+            position: absolute; top: 0; left: 0;
+            box-shadow: 0 0 15px #ff0033;
+            animation: scan 2s linear infinite;
+        }
+        @keyframes scan {
+            0% { top: 0; opacity: 0; }
+            10% { opacity: 1; }
+            90% { opacity: 1; }
+            100% { top: 100%; opacity: 0; }
+        }
+        #target-alert {
+            position: absolute; top: 20px; left: 20px;
+            color: #ff0033; font-family: monospace; font-size: 20px; font-weight: bold;
+            text-shadow: 0 0 10px #ff0033; border: 1px solid #ff0033;
+            padding: 10px; background: rgba(20, 0, 0, 0.7);
+            animation: blink 1s infinite alternate;
+        }
+        @keyframes blink { from { opacity: 1; } to { opacity: 0.3; } }
 
-        /* Area Chat */
-        #chat-container { flex: 1; border-left: 2px solid #ccc; display: flex; flex-direction: column; background: #fff; }
-        #chat-box { flex-grow: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 10px; }
+        /* === Asisten BPBD UI === */
+        #jarvis-chat {
+            position: absolute; top: 20px; right: 20px; width: 380px; height: 550px; 
+            background-color: rgba(14, 17, 23, 0.95); border: 1px solid #00ffcc; border-radius: 8px; 
+            z-index: 10000; display: flex; flex-direction: column; 
+            box-shadow: 0 0 20px rgba(0, 255, 204, 0.3); font-family: monospace; backdrop-filter: blur(5px);
+        }
+        #chat-header {
+            background-color: #00ffcc; color: #0e1117; padding: 12px; 
+            font-weight: bold; text-align: center; border-top-left-radius: 6px; border-top-right-radius: 6px;
+            letter-spacing: 2px;
+        }
+        #chat-box {
+            flex: 1; padding: 15px; overflow-y: auto; color: #fff; font-size: 14px;
+        }
         
-        /* Bubble Chat */
-        .user-msg { align-self: flex-end; background: #d1e7dd; padding: 10px 15px; border-radius: 15px 15px 0 15px; max-width: 80%; }
-        .bot-msg { align-self: flex-start; background: #f8d7da; padding: 10px 15px; border-radius: 15px 15px 15px 0; max-width: 80%; }
-        .loading-msg { align-self: flex-start; color: #6c757d; font-style: italic; font-size: 0.9em; }
-        .error-msg { align-self: flex-start; color: red; font-weight: bold; }
-
-        /* Input Area */
-        .input-area { display: flex; padding: 15px; border-top: 1px solid #ccc; background: #f1f1f1; }
-        #user-input { flex-grow: 1; padding: 10px; border: 1px solid #ccc; border-radius: 5px; outline: none; }
-        button { padding: 10px 15px; margin-left: 10px; background: #0d6efd; color: white; border: none; border-radius: 5px; cursor: pointer; font-weight: bold; }
-        button:hover { background: #0b5ed7; }
+        /* PERBAIKAN FORMATTING TEKS AI */
+        .chat-msg { margin-bottom: 12px; line-height: 1.6; }
+        .ai-msg { color: #00ffcc; }
+        .ai-msg p { margin-top: 0; margin-bottom: 10px; }
+        .ai-msg ul { padding-left: 20px; margin-top: 0; }
+        .ai-msg li { margin-bottom: 5px; }
+        .ai-msg strong { color: #fff; text-shadow: 0 0 5px #00ffcc; }
+        
+        .user-msg { color: #fff; text-align: right; font-style: italic; opacity: 0.9; margin-left: 40px; }
+        
+        #chat-input-area { padding: 12px; border-top: 1px solid #00ffcc; display: flex; }
+        #user-input {
+            flex: 1; background: transparent; border: none; color: #00ffcc; 
+            outline: none; font-family: monospace; font-size: 14px;
+        }
+        #send-btn {
+            background: transparent; color: #00ffcc; border: 1px solid #00ffcc; 
+            cursor: pointer; padding: 6px 12px; border-radius: 4px; font-weight: bold; transition: 0.3s;
+        }
+        #send-btn:hover { background: #00ffcc; color: #0e1117; }
     </style>
 </head>
 <body>
-
-    <!-- BAGIAN KIRI: PETA -->
-    <div id="map-container">
-        <div id="hud">
-            <span id="alert-box"></span>
+    <div class="header" style="background-color: #1e293b; border-bottom: 3px solid #f97316; padding: 15px;">
+        <a href="/" style="float: left; color: #f97316; text-decoration: none; font-weight: bold; border: 1px solid #f97316; padding: 5px 15px; border-radius: 5px; transition: 0.3s;" onmouseover="this.style.background='#f97316'; this.style.color='#fff';" onmouseout="this.style.background='transparent'; this.style.color='#f97316';">
+            &lt; KEMBALI
+        </a>
+        <h3 style="margin:0; display: inline-block; color: #fff;">PETA MITIGASI BENCANA KBB</h3>
+    </div>
+    <div class="map-container">
+        <!-- Peta Folium -->
+        {{ peta_html | safe }}
+        
+        <!-- Efek Targeting Merah -->
+        <div id="hud-overlay">
+            <div class="scan-line"></div>
+            <div id="target-alert">⚠️ TARGET PRIORITAS TERDETEKSI DI PETA</div>
         </div>
         
-        <!-- Contoh Dummy Peta SVG (Hanya untuk ilustrasi visual) -->
-        <svg viewBox="0 0 500 500">
-            <!-- Menambahkan class "desa-nama" sesuai logika JS -->
-            <path d="M100,100 L250,100 L250,250 L100,250 Z" class="desa-nyenang" title="Nyenang"></path>
-            <path d="M260,100 L410,100 L410,250 L260,250 Z" class="desa-sukamaju" title="Sukamaju"></path>
-            <path d="M100,260 L250,260 L250,410 L100,410 Z" class="desa-cibodas" title="Cibodas"></path>
-        </svg>
-    </div>
-
-    <!-- BAGIAN KANAN: CHATBOT -->
-    <div id="chat-container">
-        <div id="chat-box">
-            <div class="bot-msg"><strong>Asisten BPBD:</strong><br>Halo! Ketik nama desa (misal: Nyenang) atau ketik "edukasi rendah" untuk memfilter peta. Ketik "reset" untuk mengembalikan peta.</div>
-        </div>
-        <div class="input-area">
-            <input type="text" id="user-input" placeholder="Ketik pesan di sini...">
-            <button onclick="sendMessage()">Kirim</button>
+        <!-- Chatbot Interface -->
+        <div id="jarvis-chat">
+            <div id="chat-header">🤖 BPBD Chatbot</div>
+            <div id="chat-box">
+                <div class="chat-msg ai-msg">[SISTEM] K-Means Clustering terkalibrasi. Apa instruksi Anda selanjutnya?</div>
+            </div>
+            <div id="chat-input-area">
+                <input type="text" id="user-input" placeholder="Ketik perintah...">
+                <button id="send-btn" onclick="sendMessage()">KIRIM</button>
+            </div>
         </div>
     </div>
 
-    <!-- SCRIPT JAVASCRIPT -->
     <script>
-        // DUMMY DATA PETA (Sesuaikan dengan data asli dari Backend Flask/JSON kamu)
-        const mapData = {
-            "nyenang": { Persen_Edukasi: 20.5 },    // Di bawah 25 (Edukasi Rendah)
-            "sukamaju": { Persen_Edukasi: 35.0 },   // Di atas 25
-            "cibodas": { Persen_Edukasi: 15.2 }     // Di bawah 25 (Edukasi Rendah)
-        };
+        // Tangkap data dari Flask backend
+        const mapData = {{ data_dict | tojson | safe }};
 
-        // FUNGSI EFEK PETA
-        function triggerMapEffect(botReply, userMessage) {
-            const textCombined = (botReply + " " + userMessage).toLowerCase();
-            const alertBox = document.getElementById("alert-box");
-            const hud = document.getElementById("hud");
-            const allPaths = document.querySelectorAll("path");
+        function triggerMapEffect(aiText, userMessage) {
+            userMessage = userMessage || "";
+            aiText = aiText || "";
 
-            // LOGIKA KEMBALIKAN PETA KE NORMAL
-            if (userMessage.toLowerCase().includes("normal") || userMessage.toLowerCase().includes("reset")) {
+            let textCombined = (userMessage + " " + aiText).toLowerCase();
+            const hud = document.getElementById("hud-overlay");
+            const alertBox = document.getElementById("target-alert");
+            
+            // Cari peta di dalam "kamar" Iframe
+            const mapIframe = document.querySelector('.map-container iframe');
+            let docToSearch = document; // Default fallback
+            
+            if (mapIframe) {
+                // Tembus ke dalam dokumen iframe
+                docToSearch = mapIframe.contentDocument || mapIframe.contentWindow.document;
+            }
+
+            // Seleksi elemen berdasarkan Desa (bukan kecamatan lagi)
+            const allPaths = docToSearch.querySelectorAll('.desa-item');
+            
+            // FITUR RESET
+            if (textCombined.includes("reset") || textCombined.includes("kembalikan") || textCombined.includes("awal")) {
                 alertBox.innerText = `🔄 PETA DIKEMBALIKAN KE NORMAL`;
                 hud.style.display = "block";
                 setTimeout(() => { hud.style.display = "none"; }, 4000);
                 
                 allPaths.forEach(path => {
-                    path.style.fillOpacity = "";
-                    path.style.fill = "#555555";
-                    path.style.strokeWidth = "1px";
+                    path.style.fillOpacity = ""; 
+                    path.style.fill = ""; 
+                    path.style.strokeWidth = "";
                 });
                 return;
             }
@@ -99,33 +148,32 @@
             let targetDesas = [];
             let isFiltering = false;
 
-            // LOGIKA FILTER EDUKASI RENDAH
+            // KONDISI 1: User mencari "edukasi rendah"
             if (userMessage.toLowerCase().includes("edukasi rendah")) {
                 isFiltering = true;
-                alertBox.innerText = `🎯 MENYOROT DESA: EDUKASI RENDAH (< 25%)`;
+                alertBox.innerText = `🎯 MENYOROT WILAYAH: EDUKASI RENDAH (< 25%)`;
                 hud.style.display = "block";
                 setTimeout(() => { hud.style.display = "none"; }, 8000);
-                
+
                 for (let desa in mapData) {
                     if (mapData[desa].Persen_Edukasi < 25.0) {
                         targetDesas.push(desa);
                     }
                 }
-            } else {
-                // PENCARIAN NAMA DESA
+            } 
+            // KONDISI 2: User atau AI menyebut desa spesifik
+            else {
                 const daftarDesa = Object.keys(mapData);
                 daftarDesa.forEach(desa => {
-                    if (textCombined.includes(desa.toLowerCase())) {
+                    if (textCombined.includes(desa)) {
                         targetDesas.push(desa);
                     }
                 });
 
                 if (targetDesas.length > 0) {
                     isFiltering = true;
-                    let displayNames = targetDesas.slice(0, 3).join(', ').toUpperCase();
-                    if (targetDesas.length > 3) displayNames += " DLL";
-                    
-                    alertBox.innerText = `🎯 MENYOROT DESA: ${displayNames}`;
+                    // Tampilkan notifikasi di layar
+                    alertBox.innerText = `🎯 MENYOROT WILAYAH: ${targetDesas.join(', ').toUpperCase()}`;
                     hud.style.display = "block";
                     setTimeout(() => { hud.style.display = "none"; }, 8000);
                 }
@@ -144,35 +192,32 @@
                     if (isTarget) {
                         path.style.fillOpacity = 0.9;
                         path.style.strokeWidth = "3px";
-                        path.style.fill = "#ff4d4d"; // Warna merah agar kontras saat disorot
+                        path.style.fill = ""; 
                     } else {
-                        path.style.fillOpacity = 0.1;
-                        path.style.fill = "#555555";
+                        // Redupkan daerah lainnya
+                        path.style.fillOpacity = 0.1; 
+                        path.style.fill = "#555555"; 
                         path.style.strokeWidth = "1px";
                     }
                 });
             }
         }
 
-        // FUNGSI KIRIM PESAN KE API
         function sendMessage() {
             const inputField = document.getElementById("user-input");
-            const message = inputField.value.trim();
+            const message = inputField.value;
             if (!message) return;
 
             const chatBox = document.getElementById("chat-box");
             
-            // 1. Tampilkan pesan user
-            chatBox.insertAdjacentHTML('beforeend', `<div class="user-msg">${message}</div>`);
+            chatBox.innerHTML += `<div class="chat-msg user-msg">${message}</div>`;
             inputField.value = "";
             chatBox.scrollTop = chatBox.scrollHeight;
 
-            // 2. Buat ID loading dan tampilkan
             const loadingId = "load-" + Date.now();
-            chatBox.insertAdjacentHTML('beforeend', `<div id="${loadingId}" class="loading-msg">[SISTEM] Memindai database level desa...</div>`);
+            chatBox.innerHTML += `<div id="${loadingId}" class="chat-msg ai-msg">[SISTEM] Memindai database...</div>`;
             chatBox.scrollTop = chatBox.scrollHeight;
 
-            // 3. Panggil API Chat (Flask/Node.js)
             fetch('/api/chat', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -180,29 +225,23 @@
             })
             .then(response => response.json())
             .then(data => {
-                // 4. Hapus tulisan loading
-                const loadingElement = document.getElementById(loadingId);
-                if (loadingElement) loadingElement.remove();
+                document.getElementById(loadingId).remove();
                 
-                // 5. Tampilkan balasan Bot
+                // MENGGUNAKAN MARKED.JS UNTUK MERAPIKAN MARKDOWN AI
                 const formattedReply = marked.parse(data.reply);
-                chatBox.insertAdjacentHTML('beforeend', `<div class="bot-msg"><strong>Asisten BPBD:</strong><br>${formattedReply}</div>`);
+                
+                chatBox.innerHTML += `<div class="chat-msg ai-msg"><b>Asisten BPBD:</b><br>${formattedReply}</div>`;
                 chatBox.scrollTop = chatBox.scrollHeight;
                 
-                // 6. Jalankan efek peta
+                // Panggil fungsi efek peta
                 triggerMapEffect(data.reply, message);
             })
             .catch(error => {
-                // Hapus loading dan tampilkan error jika server mati
-                const loadingElement = document.getElementById(loadingId);
-                if (loadingElement) loadingElement.remove();
-                
-                chatBox.insertAdjacentHTML('beforeend', `<div class="error-msg">[ERROR] Koneksi server terputus. Pastikan server Flask/NodeJS menyala.</div>`);
-                chatBox.scrollTop = chatBox.scrollHeight;
+                document.getElementById(loadingId).remove();
+                chatBox.innerHTML += `<div class="chat-msg" style="color:red;">[ERROR] Koneksi server terputus.</div>`;
             });
         }
 
-        // FUNGSI ENTER UNTUK MENGIRIM PESAN
         document.getElementById("user-input").addEventListener("keypress", function(event) {
             if (event.key === "Enter") {
                 event.preventDefault();
