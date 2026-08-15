@@ -160,10 +160,10 @@ def generate_map():
                 <b>Kelas Risiko BPBD:</b> {d['Kelas_Risiko']}
             </div>
             """
-            tooltip_text = f"Desa {d['Desa']} (Kec. {d['Kecamatan']})"
+            tooltip_text = f"Kec. {d['Kecamatan']} (Desa {d['Desa']})"
         else:
-            popup_html = f'<b>Desa: {raw_name.capitalize()}</b><br>Data belum dimasukkan.'
-            tooltip_text = f'Desa {raw_name.capitalize()}'
+            popup_html = f'<b>Wilayah: {raw_name.capitalize()}</b><br>Data belum dimasukkan.'
+            tooltip_text = f'Area {raw_name.capitalize()}'
 
         geo_obj = folium.GeoJson(
             feature,
