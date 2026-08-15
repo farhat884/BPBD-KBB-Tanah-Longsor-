@@ -16,13 +16,13 @@ df_data = get_ml_clustered_data(app.root_path)
 
 data_dict = {}
 if not df_data.empty:
-    # Memetakan dictionary menggunakan nama Desa, bukan Kecamatan
+    # Menggunakan nama Desa sebagai key dari dictionary
     data_dict = {
         clean_name(row['Desa']): row for row in df_data.to_dict('records')
     }
-    print(f"🔍 DEBUG: Desa yang siap di-mapping: {list(data_dict.keys())}")
+    print(f"🔍 DEBUG: Desa yang siap di-mapping: {list(data_dict.keys())[:10]}...")
 else:
-    print("⚠️ DEBUG: Data dictionary kosong! Periksa file ml_engine.py.")
+    print("⚠️ DEBUG: Data dictionary kosong! Periksa file ml_engine.py dan dataset Excel.")
 
 # =========================================================
 # 2. BACA GEOJSON LOKAL
@@ -62,9 +62,15 @@ def load_local_geojson_files():
 
     return {'type': 'FeatureCollection', 'features': features}
 
+def get_nama_kecamatan(properties):
+    for key in ['district', 'nama_kec_file', 'WADMKC', 'NAMOBJ', 'nama_kecamatan', 'waerkd']:
+        if key in properties and properties[key]:
+            return str(properties[key])
+    return ''
+
 def get_nama_desa(properties):
-    # Disesuaikan dengan atribut standar GeoJSON level Desa di Indonesia
-    for key in ['village', 'nama_desa', 'DESA', 'NAMOBJ', 'nama_kelurahan']:
+    # Ekstraksi nama desa dari properties GeoJSON
+    for key in ['village', 'nama_desa', 'desa', 'NAMOBJ']:
         if key in properties and properties[key]:
             return str(properties[key])
     return ''
@@ -79,7 +85,7 @@ def get_legend_html():
         bottom: 30px; left: 30px; width: 260px; 
         background-color: white; z-index:9999; font-size:12px; font-family: sans-serif;
         border:2px solid #ccc; border-radius: 8px; padding: 12px; box-shadow: 2px 2px 8px rgba(0,0,0,0.2);">
-        <b style="font-size: 13px;">Prioritas Edukasi Bencana (Desa)</b><br>
+        <b style="font-size: 13px;">Prioritas Edukasi Bencana</b><br>
         <span style="font-size: 11px; color: #555;">Berdasarkan persentase warga teredukasi</span>
         <hr style="margin: 6px 0;">
         <i style="background: #d7191c; width: 14px; height: 14px; float: left; margin-right: 10px;"></i> <b>Prioritas Tinggi</b> (&lt; 25% Teredukasi)<br>
@@ -108,7 +114,6 @@ def generate_map():
             else:
                 fill_color = '#d7191c'  # Merah
         
-        # PERUBAHAN: menggunakan prefix desa-
         return {
             'fillColor': fill_color, 
             'color': '#111111', 
@@ -124,7 +129,7 @@ def generate_map():
         raw_name = get_nama_desa(feature['properties'])
         key_clean = clean_name(raw_name)
 
-        if key_clean == 'waduk' or not key_clean:
+        if key_clean == 'waduk':
             continue
 
         if key_clean in data_dict:
@@ -139,7 +144,7 @@ def generate_map():
                 teks_prioritas = "<span style='color:#d7191c; font-weight:bold;'>TINGGI (Butuh Segera)</span>"
 
             popup_html = f"""
-            <div style="font-family: Arial, sans-serif; min-width: 230px; font-size:12px;">
+            <div style="font-family: Arial, sans-serif; min-width: 210px; font-size:12px;">
                 <h4 style="margin:0 0 6px 0; color:#2c3e50;">Desa {d['Desa']}</h4>
                 <b>Kecamatan:</b> {d['Kecamatan']}<br>
                 <b>Total Penduduk:</b> {d['Total_Warga']:,} jiwa<br>
@@ -147,11 +152,12 @@ def generate_map():
                 <hr style="margin:6px 0;">
                 <b>Prioritas Penyuluhan:</b> {teks_prioritas}
                 <hr style="margin:6px 0;">
-                <b>Rincian Kerentanan:</b><br>
-                • Umur Rentan (Balita/Lansia): {d['Umur_Rentan']:,} jiwa<br>
-                • Keluarga Miskin: {d['Miskin']:,} jiwa<br>
-                • Penyandang Disabilitas: {d['Disabilitas']:,} jiwa<br>
-                <b>Kelas Risiko:</b> {d['Kelas_Risiko']}
+                <b>Kelompok Rentan:</b><br>
+                • Umur Rentan: {d['Rentan_Balita_Lansia']:,} jiwa<br>
+                • Miskin: {d['Rentan_Miskin']:,} jiwa<br>
+                • Disabilitas: {d['Rentan_Disabilitas']:,} jiwa<br>
+                <b>Jumlah Rentan:</b> {d['Rentan_Balita_Lansia'] + d['Rentan_Miskin'] + d['Rentan_Disabilitas']:,} jiwa<br>
+                <b>Kelas Risiko BPBD:</b> {d['Kelas_Risiko']}
             </div>
             """
             tooltip_text = f"Desa {d['Desa']} (Kec. {d['Kecamatan']})"
@@ -167,7 +173,6 @@ def generate_map():
             popup=folium.Popup(popup_html, max_width=320),
         )
         
-        # Menyisipkan class unik untuk integrasi UI
         if key_clean:
             geo_obj.add_child(folium.features.GeoJsonTooltip(fields=[], labels=False))
             geo_obj.options['className'] = f'desa-item desa-{key_clean}'
@@ -201,34 +206,33 @@ def cuaca():
 def chat():
     user_msg = request.json.get('message')
     
-    # 4a. Mengubah DataFrame menjadi konteks teks agar AI paham datanya
     ringkasan_data = []
     if not df_data.empty:
         for _, row in df_data.iterrows():
             cluster = row.get('Cluster', -1)
             prioritas = "Tinggi" if cluster == 0 else ("Sedang" if cluster == 2 else "Rendah")
-            ringkasan_data.append(f"- Desa {row['Desa']} (Kec. {row['Kecamatan']}): Prioritas {prioritas}, Edukasi {row['Persen_Edukasi']}%, Rentan L/B: {row['Umur_Rentan']}")
+            ringkasan_data.append(f"- Desa {row['Desa']} (Kec. {row['Kecamatan']}): Prioritas {prioritas}")
     
     konteks_ml = str(data_dict)
     
-   # 4b. Prompt / Karakteristik Asisten (Diubah ke tingkat Desa)
     system_prompt = f"""
 Kamu adalah Asisten Virtual BPBD (Badan Penanggulangan Bencana Daerah) Kabupaten Bandung Barat (KBB).
-Tugasmu adalah membantu pengguna menganalisis data spasial terkait risiko dan mitigasi bencana longsor pada tingkat DESA.
-Gunakan bahasa Indonesia yang profesional, sopan, namun tetap mudah dipahami.
+Tugasmu adalah membantu pengguna menganalisis data spasial terkait risiko dan mitigasi bencana longsor.
+Gunakan bahasa Indonesia yang profesional, sopan, namun tetap mudah dipahami (informatif).
 Jika ditanya siapa kamu, jawablah bahwa kamu adalah Chatbot AI dari BPBD KBB.
 
-PENTING: Berikut adalah SATU-SATUNYA data clustering machine learning per Desa yang valid dan boleh kamu analisis:
+PENTING: Berikut adalah SATU-SATUNYA data clustering machine learning yang valid dan boleh kamu analisis:
 {konteks_ml}
 
 ATURAN MENJAWAB:
-1. DILARANG KERAS mengarang nama daerah, kondisi geologi, atau persentase angka. HANYA gunakan nama Desa/Kecamatan dan angka yang tertera!
-2. Jika pengguna bertanya daerah prioritas, saring dan sebutkan nama Desa yang berstatus "Prioritas Tinggi" (atau Edukasi < 25%).
+1. DILARANG KERAS mengarang nama daerah, kondisi geologi, infrastruktur, atau persentase angka. HANYA gunakan nama Desa/Kecamatan dan angka yang persis tertera pada data di atas!
+2. Jika pengguna bertanya daerah prioritas, saring dan sebutkan hanya Desa yang berstatus "Prioritas Tinggi".
 3. Wajib gunakan format Bullet Points (-) atau penomoran.
 4. Gunakan huruf tebal (**teks**) untuk menegaskan nama Desa.
-5. BULATKAN semua angka desimal menjadi maksimal 2 angka di belakang koma.
-6. Jawab maksimal 3 paragraf, singkat dan padat.
-7. Jika ditanya tentang cara pencegahan/evakuasi longsor, arahkan membaca panduan lengkap ke halaman /edukasi.
+5. BULATKAN semua angka desimal menjadi maksimal 2 angka di belakang koma (contoh: 23.99).
+6. Jawab maksimal 3 paragraf, singkat, padat, dan langsung ke intinya.
+7. Jika data di atas ternyata kosong/blank, JANGAN MENGARANG JAWABAN.
+8. KHUSUS PENCEGAHAN/EVAKUASI: Jika pengguna bertanya tentang cara pencegahan, evakuasi, atau apa yang harus dilakukan saat longsor, berikan 1-2 tips singkat, lalu ARAHKAN mereka untuk membaca pedoman lengkap dengan kalimat seperti: "Untuk panduan lebih lengkap, silakan kunjungi menu **Panduan Keselamatan** atau akses halaman /edukasi".
 """
 
     api_key = os.environ.get("GROQ_API_KEY") 
