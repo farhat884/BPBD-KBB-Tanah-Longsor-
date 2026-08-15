@@ -10,22 +10,19 @@ from ml_engine import get_ml_clustered_data, clean_name
 app = Flask(__name__)
 
 # =========================================================
-# 1. LOAD DATA DARI MESIN (ML_ENGINE)
+# 1. LOAD DATA
 # =========================================================
 df_data = get_ml_clustered_data(app.root_path)
 
 data_dict = {}
 if not df_data.empty:
-    # Menggunakan nama Desa sebagai key dari dictionary
     data_dict = {
         clean_name(row['Desa']): row for row in df_data.to_dict('records')
     }
     print(f"🔍 DEBUG: Desa yang siap di-mapping: {list(data_dict.keys())[:10]}...")
-else:
-    print("⚠️ DEBUG: Data dictionary kosong! Periksa file ml_engine.py dan dataset Excel.")
 
 # =========================================================
-# 2. BACA GEOJSON LOKAL
+# 2. BACA GEOJSON
 # =========================================================
 def load_local_geojson_files():
     folder_path = os.path.join(app.root_path, 'static', 'id3217_bandung_barat')
@@ -42,7 +39,7 @@ def load_local_geojson_files():
                 if data.get('type') == 'FeatureCollection' and len(data.get('features', [])) > 0:
                     return data
         except Exception as e:
-            print(f'Error reading main GeoJSON: {e}')
+            pass
 
     for filename in os.listdir(folder_path):
         if filename.endswith(('.geojson', '.json')):
@@ -58,25 +55,18 @@ def load_local_geojson_files():
                     elif data.get('type') == 'Feature':
                         features.append(data)
             except Exception as e:
-                print(f'Gagal membaca {filename}: {e}')
+                pass
 
     return {'type': 'FeatureCollection', 'features': features}
 
-def get_nama_kecamatan(properties):
-    for key in ['district', 'nama_kec_file', 'WADMKC', 'NAMOBJ', 'nama_kecamatan', 'waerkd']:
-        if key in properties and properties[key]:
-            return str(properties[key])
-    return ''
-
 def get_nama_desa(properties):
-    # Ekstraksi nama desa dari properties GeoJSON
     for key in ['village', 'nama_desa', 'desa', 'NAMOBJ']:
         if key in properties and properties[key]:
             return str(properties[key])
     return ''
 
 # =========================================================
-# 3. GENERATE PETA FOLIUM
+# 3. GENERATE PETA
 # =========================================================
 def get_legend_html():
     return """
@@ -85,14 +75,14 @@ def get_legend_html():
         bottom: 30px; left: 30px; width: 260px; 
         background-color: white; z-index:9999; font-size:12px; font-family: sans-serif;
         border:2px solid #ccc; border-radius: 8px; padding: 12px; box-shadow: 2px 2px 8px rgba(0,0,0,0.2);">
-        <b style="font-size: 13px;">Prioritas Edukasi Bencana</b><br>
-        <span style="font-size: 11px; color: #555;">Berdasarkan persentase warga teredukasi</span>
+        <b style="font-size: 13px;">Status Kerawanan Kecamatan</b><br>
+        <span style="font-size: 11px; color: #555;">Total Warga Butuh Edukasi</span>
         <hr style="margin: 6px 0;">
-        <i style="background: #d7191c; width: 14px; height: 14px; float: left; margin-right: 10px;"></i> <b>Prioritas Tinggi</b> (&lt; 25% Teredukasi)<br>
+        <i style="background: #d7191c; width: 14px; height: 14px; float: left; margin-right: 10px;"></i> <b>Darurat Tinggi</b> (&ge; 40,000 jiwa)<br>
         <div style="clear:both; margin-top: 4px;"></div>
-        <i style="background: #fdae61; width: 14px; height: 14px; float: left; margin-right: 10px;"></i> <b>Prioritas Sedang</b> (25% - 49.9%)<br>
+        <i style="background: #fdae61; width: 14px; height: 14px; float: left; margin-right: 10px;"></i> <b>Siaga Sedang</b> (20,000 - 39,999 jiwa)<br>
         <div style="clear:both; margin-top: 4px;"></div>
-        <i style="background: #2b83ba; width: 14px; height: 14px; float: left; margin-right: 10px;"></i> <b>Prioritas Rendah</b> (&ge; 50% Teredukasi)<br>
+        <i style="background: #2b83ba; width: 14px; height: 14px; float: left; margin-right: 10px;"></i> <b>Aman / Rendah</b> (&lt; 20,000 jiwa)<br>
     </div>
     """
 
@@ -101,18 +91,17 @@ def generate_map():
     geojson_data = load_local_geojson_files()
 
     def style_function(feature):
-        raw_name = get_nama_desa(feature['properties'])
+        raw_name = get_nama_desa(feature['properties']) 
         key_clean = clean_name(raw_name)
-        fill_color = '#cccccc' # Default abu-abu
+        fill_color = '#cccccc' 
 
         if key_clean in data_dict:
-            pct = data_dict[key_clean]['Persen_Edukasi']
-            if pct >= 50.0:
-                fill_color = '#2b83ba'  # Biru
-            elif pct >= 25.0:
-                fill_color = '#fdae61'  # Oranye
-            else:
-                fill_color = '#d7191c'  # Merah
+            # WARNA DITENTUKAN OLEH TOTAL KECAMATAN
+            terpapar_kecamatan = data_dict[key_clean]['Total_Terpapar_Kecamatan']
+            
+            if terpapar_kecamatan >= 40000: fill_color = '#d7191c'
+            elif terpapar_kecamatan >= 20000: fill_color = '#fdae61'
+            else: fill_color = '#2b83ba'
         
         return {
             'fillColor': fill_color, 
@@ -135,46 +124,69 @@ def generate_map():
         if key_clean in data_dict:
             d = data_dict[key_clean]
             
-            pct = d['Persen_Edukasi']
-            if pct >= 50.0:
-                teks_prioritas = "<span style='color:#2b83ba; font-weight:bold;'>RENDAH (Aman)</span>"
-            elif pct >= 25.0:
-                teks_prioritas = "<span style='color:#e67e22; font-weight:bold;'>SEDANG</span>"
-            else:
-                teks_prioritas = "<span style='color:#d7191c; font-weight:bold;'>TINGGI (Butuh Segera)</span>"
-
+            # --- POP-UP DETAIL DESA SAAT DIKLIK ---
             popup_html = f"""
-            <div style="font-family: Arial, sans-serif; min-width: 210px; font-size:12px;">
-                <h4 style="margin:0 0 6px 0; color:#2c3e50;">Desa {d['Desa']}</h4>
-                <b>Kecamatan:</b> {d['Kecamatan']}<br>
-                <b>Total Penduduk:</b> {d['Total_Warga']:,} jiwa<br>
-                <b>Warga Teredukasi:</b> {d['Warga_Teredukasi']:,} jiwa (<b>{d['Persen_Edukasi']}%</b>)<br>
-                <hr style="margin:6px 0;">
-                <b>Prioritas Penyuluhan:</b> {teks_prioritas}
-                <hr style="margin:6px 0;">
-                <b>Kelompok Rentan:</b><br>
-                • Umur Rentan: {d['Rentan_Balita_Lansia']:,} jiwa<br>
-                • Miskin: {d['Rentan_Miskin']:,} jiwa<br>
-                • Disabilitas: {d['Rentan_Disabilitas']:,} jiwa<br>
-                <b>Jumlah Rentan:</b> {d['Rentan_Balita_Lansia'] + d['Rentan_Miskin'] + d['Rentan_Disabilitas']:,} jiwa<br>
-                <b>Kelas Risiko BPBD:</b> {d['Kelas_Risiko']}
+            <div style="font-family: Arial, sans-serif; min-width: 250px; font-size:12px;">
+                <div style="background-color: #d35400; color: white; padding: 8px; border-radius: 4px 4px 0 0; text-align: center;">
+                    <h3 style="margin:0; font-size: 15px; letter-spacing: 1px;">KEC. {d['Kecamatan'].upper()}</h3>
+                    <span style="font-size: 11px;">Total Terpapar Kecamatan: <b>{d['Total_Terpapar_Kecamatan']:,}</b> jiwa</span>
+                </div>
+                <div style="padding: 10px; border: 1px solid #ccc; border-top: none; border-radius: 0 0 4px 4px; background-color: #f8f9fa;">
+                    <div style="text-align: center; margin-bottom: 8px;">
+                        <span style="font-size: 11px; color: #555;">KONDISI LOKAL WILAYAH INI:</span><br>
+                        <b style="font-size: 14px; color: #2c3e50;">DESA {d['Desa'].upper()}</b>
+                    </div>
+                    <div style="background-color: white; border: 1px solid #e0e0e0; padding: 8px; border-radius: 4px; text-align: center;">
+                        <b style="font-size: 11px; color: #7f8c8d;">WARGA TERPAPAR (DESA)</b><br>
+                        <span style="font-size: 20px; color: #c0392b; font-weight: bold;">{d['Warga_Terpapar_Desa']:,}</span> <span style="font-size:11px;">jiwa</span>
+                    </div>
+                    <table style="width: 100%; font-size: 11px; margin-top: 10px; color: #34495e;">
+                        <tr>
+                            <td>Total Penduduk Desa</td>
+                            <td style="text-align: right;"><b>{d['Total_Warga_Desa']:,}</b> jiwa</td>
+                        </tr>
+                        <tr>
+                            <td>Rentan (Balita/Lansia)</td>
+                            <td style="text-align: right;"><b>{d['Rentan_BL_Desa']:,}</b> jiwa</td>
+                        </tr>
+                        <tr>
+                            <td>Rentan (Miskin)</td>
+                            <td style="text-align: right;"><b>{d['Rentan_Miskin_Desa']:,}</b> jiwa</td>
+                        </tr>
+                        <tr>
+                            <td>Rentan (Disabilitas)</td>
+                            <td style="text-align: right;"><b>{d['Rentan_Disabilitas_Desa']:,}</b> jiwa</td>
+                        </tr>
+                    </table>
+                </div>
             </div>
             """
-            tooltip_text = f"Kec. {d['Kecamatan']} (Desa {d['Desa']})"
+            
+            # --- LEGENDA MINI SAAT DI-HOVER ---
+            tooltip_html = f"""
+            <div style="font-family: Arial, sans-serif; text-align: center; min-width: 160px;">
+                <b style="font-size: 13px; color: #d35400;">KEC. {d['Kecamatan'].upper()}</b><br>
+                Total Terpapar: <b>{d['Total_Terpapar_Kecamatan']:,}</b> jiwa<br>
+                <hr style="margin: 6px 0; border: 0; border-top: 1px solid #ccc;">
+                <i style="font-size: 10px; color: #34495e;">Klik untuk Zoom & Lihat Detail Desa {d['Desa']}</i>
+            </div>
+            """
         else:
             popup_html = f'<b>Wilayah: {raw_name.capitalize()}</b><br>Data belum dimasukkan.'
-            tooltip_text = f'Area {raw_name.capitalize()}'
+            tooltip_html = f'Area {raw_name.capitalize()}'
 
         geo_obj = folium.GeoJson(
             feature,
             style_function=style_function,
             highlight_function=highlight_function,
-            tooltip=tooltip_text,
-            popup=folium.Popup(popup_html, max_width=320),
+            tooltip=folium.Tooltip(tooltip_html),
+            popup=folium.Popup(popup_html, max_width=350),
+            zoom_on_click=True # Fitur zoom otomatis
         )
         
         if key_clean:
-            geo_obj.add_child(folium.features.GeoJsonTooltip(fields=[], labels=False))
+            # Hapus tooltip ganda
+            geo_obj.add_child(folium.features.GeoJsonTooltip(fields=[], labels=False)) 
             geo_obj.options['className'] = f'desa-item desa-{key_clean}'
             
         geo_obj.add_to(m)
@@ -183,7 +195,7 @@ def generate_map():
     return m._repr_html_()
 
 # =========================================================
-# 4. ROUTING WEB & API CHATBOT
+# 4. ROUTING & AI
 # =========================================================
 @app.route('/')
 def home():
@@ -205,34 +217,19 @@ def cuaca():
 @app.route('/api/chat', methods=['POST'])
 def chat():
     user_msg = request.json.get('message')
-    
-    ringkasan_data = []
-    if not df_data.empty:
-        for _, row in df_data.iterrows():
-            cluster = row.get('Cluster', -1)
-            prioritas = "Tinggi" if cluster == 0 else ("Sedang" if cluster == 2 else "Rendah")
-            ringkasan_data.append(f"- Desa {row['Desa']} (Kec. {row['Kecamatan']}): Prioritas {prioritas}")
-    
     konteks_ml = str(data_dict)
     
     system_prompt = f"""
-Kamu adalah Asisten Virtual BPBD (Badan Penanggulangan Bencana Daerah) Kabupaten Bandung Barat (KBB).
-Tugasmu adalah membantu pengguna menganalisis data spasial terkait risiko dan mitigasi bencana longsor.
-Gunakan bahasa Indonesia yang profesional, sopan, namun tetap mudah dipahami (informatif).
-Jika ditanya siapa kamu, jawablah bahwa kamu adalah Chatbot AI dari BPBD KBB.
-
-PENTING: Berikut adalah SATU-SATUNYA data clustering machine learning yang valid dan boleh kamu analisis:
+Kamu adalah Asisten Virtual BPBD KBB.
+Berikut adalah data spasial risiko bencana:
 {konteks_ml}
 
 ATURAN MENJAWAB:
-1. DILARANG KERAS mengarang nama daerah, kondisi geologi, infrastruktur, atau persentase angka. HANYA gunakan nama Desa/Kecamatan dan angka yang persis tertera pada data di atas!
-2. Jika pengguna bertanya daerah prioritas, saring dan sebutkan hanya Desa yang berstatus "Prioritas Tinggi".
-3. Wajib gunakan format Bullet Points (-) atau penomoran.
-4. Gunakan huruf tebal (**teks**) untuk menegaskan nama Desa.
-5. BULATKAN semua angka desimal menjadi maksimal 2 angka di belakang koma (contoh: 23.99).
-6. Jawab maksimal 3 paragraf, singkat, padat, dan langsung ke intinya.
-7. Jika data di atas ternyata kosong/blank, JANGAN MENGARANG JAWABAN.
-8. KHUSUS PENCEGAHAN/EVAKUASI: Jika pengguna bertanya tentang cara pencegahan, evakuasi, atau apa yang harus dilakukan saat longsor, berikan 1-2 tips singkat, lalu ARAHKAN mereka untuk membaca pedoman lengkap dengan kalimat seperti: "Untuk panduan lebih lengkap, silakan kunjungi menu **Panduan Keselamatan** atau akses halaman /edukasi".
+1. DILARANG KERAS mengarang data. Gunakan angka persis dari data.
+2. Jika ditanya prioritas, cari yang "Total_Terpapar_Kecamatan" atau "Warga_Terpapar_Desa"-nya tertinggi.
+3. Wajib gunakan format Bullet Points.
+4. Gunakan huruf tebal (**teks**) untuk menegaskan wilayah.
+5. Jawab maksimal 3 paragraf, padat dan jelas.
 """
 
     api_key = os.environ.get("GROQ_API_KEY") 
@@ -252,16 +249,10 @@ ATURAN MENJAWAB:
     try:
         response = requests.post(url, headers=headers, json=payload)
         res_json = response.json()
-        
-        if 'error' in res_json:
-            pesan_error = res_json['error'].get('message', 'Error tidak diketahui dari server')
-            return jsonify({"reply": f"[DIAGNOSTIK SISTEM] Akses API ditolak oleh Groq. Alasan: {pesan_error}"})
-            
         ai_reply = res_json['choices'][0]['message']['content']
         return jsonify({"reply": ai_reply})
-        
     except Exception as e:
-        return jsonify({"reply": f"[DIAGNOSTIK SISTEM] Kerusakan pada modul pemrosesan: {str(e)}"})
+        return jsonify({"reply": f"[SISTEM] Kerusakan modul pemrosesan API: {str(e)}"})
 
 if __name__ == '__main__':
     app.run(debug=True, port=5000)
