@@ -105,7 +105,7 @@
             chatBox.scrollTop = chatBox.scrollHeight;
 
             const loadingId = "load-" + Date.now();
-            chatBox.innerHTML += `<div id="${loadingId}" class="chat-msg ai-msg">[SISTEM] Memindai database level desa...</div>`;
+            chatBox.innerHTML += `<div id="${loadingId}" class="loading-msg">[SISTEM] Memindai database level desa...</div>`;
             chatBox.scrollTop = chatBox.scrollHeight;
 
             fetch('/api/chat', {
