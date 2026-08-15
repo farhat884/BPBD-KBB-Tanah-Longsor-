@@ -3,17 +3,15 @@
 <head>
     <meta charset="UTF-8">
     <title>Sistem Informasi Mitigasi & Edukasi Bencana KBB</title>
-    <!-- Tambahkan library Marked.js untuk merapikan teks AI -->
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     <style>
         body { margin: 0; padding: 0; font-family: sans-serif; background-color: #0e1117; overflow: hidden; }
-        .header { background-color: #0e1117; color: #00ffcc; padding: 15px; text-align: center; border-bottom: 2px solid #00ffcc; letter-spacing: 1px; }
+        .header { background-color: #1e293b; color: #fff; padding: 15px; text-align: center; border-bottom: 3px solid #f97316; letter-spacing: 1px; }
         .map-container { width: 100%; height: calc(100vh - 65px); position: relative; }
         
-        /* === EFEK HUD TARGETING SCI-FI (AWALNYA SEMBUNYI) === */
         #hud-overlay {
             position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-            pointer-events: none; /* Supaya peta tetap bisa diklik tembus */
+            pointer-events: none;
             z-index: 5000; display: none; 
             box-shadow: inset 0 0 100px rgba(255, 0, 51, 0.5);
             border: 4px solid rgba(255, 0, 51, 0.3);
@@ -24,12 +22,8 @@
             box-shadow: 0 0 15px #ff0033;
             animation: scan 2s linear infinite;
         }
-        @keyframes scan {
-            0% { top: 0; opacity: 0; }
-            10% { opacity: 1; }
-            90% { opacity: 1; }
-            100% { top: 100%; opacity: 0; }
-        }
+        @keyframes scan { 0% { top: 0; opacity: 0; } 10% { opacity: 1; } 90% { opacity: 1; } 100% { top: 100%; opacity: 0; } }
+        
         #target-alert {
             position: absolute; top: 20px; left: 20px;
             color: #ff0033; font-family: monospace; font-size: 20px; font-weight: bold;
@@ -39,7 +33,6 @@
         }
         @keyframes blink { from { opacity: 1; } to { opacity: 0.3; } }
 
-        /* === Asisten BPBD UI === */
         #jarvis-chat {
             position: absolute; top: 20px; right: 20px; width: 380px; height: 550px; 
             background-color: rgba(14, 17, 23, 0.95); border: 1px solid #00ffcc; border-radius: 8px; 
@@ -51,87 +44,64 @@
             font-weight: bold; text-align: center; border-top-left-radius: 6px; border-top-right-radius: 6px;
             letter-spacing: 2px;
         }
-        #chat-box {
-            flex: 1; padding: 15px; overflow-y: auto; color: #fff; font-size: 14px;
-        }
+        #chat-box { flex: 1; padding: 15px; overflow-y: auto; color: #fff; font-size: 14px; }
         
-        /* PERBAIKAN FORMATTING TEKS AI */
         .chat-msg { margin-bottom: 12px; line-height: 1.6; }
         .ai-msg { color: #00ffcc; }
         .ai-msg p { margin-top: 0; margin-bottom: 10px; }
         .ai-msg ul { padding-left: 20px; margin-top: 0; }
         .ai-msg li { margin-bottom: 5px; }
         .ai-msg strong { color: #fff; text-shadow: 0 0 5px #00ffcc; }
-        
         .user-msg { color: #fff; text-align: right; font-style: italic; opacity: 0.9; margin-left: 40px; }
         
         #chat-input-area { padding: 12px; border-top: 1px solid #00ffcc; display: flex; }
-        #user-input {
-            flex: 1; background: transparent; border: none; color: #00ffcc; 
-            outline: none; font-family: monospace; font-size: 14px;
-        }
-        #send-btn {
-            background: transparent; color: #00ffcc; border: 1px solid #00ffcc; 
-            cursor: pointer; padding: 6px 12px; border-radius: 4px; font-weight: bold; transition: 0.3s;
-        }
+        #user-input { flex: 1; background: transparent; border: none; color: #00ffcc; outline: none; font-family: monospace; font-size: 14px; }
+        #send-btn { background: transparent; color: #00ffcc; border: 1px solid #00ffcc; cursor: pointer; padding: 6px 12px; border-radius: 4px; font-weight: bold; transition: 0.3s; }
         #send-btn:hover { background: #00ffcc; color: #0e1117; }
     </style>
 </head>
 <body>
-    <div class="header" style="background-color: #1e293b; border-bottom: 3px solid #f97316; padding: 15px;">
+    <div class="header">
         <a href="/" style="float: left; color: #f97316; text-decoration: none; font-weight: bold; border: 1px solid #f97316; padding: 5px 15px; border-radius: 5px; transition: 0.3s;" onmouseover="this.style.background='#f97316'; this.style.color='#fff';" onmouseout="this.style.background='transparent'; this.style.color='#f97316';">
             &lt; KEMBALI
         </a>
-        <h3 style="margin:0; display: inline-block; color: #fff;">PETA MITIGASI BENCANA KBB</h3>
+        <h3 style="margin:0; display: inline-block;">PETA MITIGASI BENCANA KBB</h3>
     </div>
     <div class="map-container">
-        <!-- Peta Folium -->
         {{ peta_html | safe }}
         
-        <!-- Efek Targeting Merah -->
         <div id="hud-overlay">
             <div class="scan-line"></div>
-            <div id="target-alert">⚠️ TARGET PRIORITAS TERDETEKSI DI PETA</div>
+            <div id="target-alert">⚠️ TARGET PRIORITAS TERDETEKSI</div>
         </div>
         
-        <!-- Chatbot Interface -->
         <div id="jarvis-chat">
             <div id="chat-header">🤖 BPBD Chatbot</div>
             <div id="chat-box">
                 <div class="chat-msg ai-msg">[SISTEM] K-Means Clustering terkalibrasi. Apa instruksi Anda selanjutnya?</div>
             </div>
             <div id="chat-input-area">
-                <input type="text" id="user-input" placeholder="Ketik perintah...">
+                <input type="text" id="user-input" placeholder="Cari kecamatan atau desa...">
                 <button id="send-btn" onclick="sendMessage()">KIRIM</button>
             </div>
         </div>
     </div>
 
     <script>
-        // Tangkap data dari Flask backend
         const mapData = {{ data_dict | tojson | safe }};
 
         function triggerMapEffect(aiText, userMessage) {
-            userMessage = userMessage || "";
-            aiText = aiText || "";
-
             let textCombined = (userMessage + " " + aiText).toLowerCase();
             const hud = document.getElementById("hud-overlay");
             const alertBox = document.getElementById("target-alert");
             
-            // Cari peta di dalam "kamar" Iframe
             const mapIframe = document.querySelector('.map-container iframe');
-            let docToSearch = document; // Default fallback
-            
-            if (mapIframe) {
-                // Tembus ke dalam dokumen iframe
-                docToSearch = mapIframe.contentDocument || mapIframe.contentWindow.document;
-            }
+            let docToSearch = document; 
+            if (mapIframe) docToSearch = mapIframe.contentDocument || mapIframe.contentWindow.document;
 
-            // Seleksi elemen berdasarkan Desa (bukan kecamatan lagi)
+            // Peta kembali membaca Desa
             const allPaths = docToSearch.querySelectorAll('.desa-item');
             
-            // FITUR RESET
             if (textCombined.includes("reset") || textCombined.includes("kembalikan") || textCombined.includes("awal")) {
                 alertBox.innerText = `🔄 PETA DIKEMBALIKAN KE NORMAL`;
                 hud.style.display = "block";
@@ -148,53 +118,50 @@
             let targetDesas = [];
             let isFiltering = false;
 
-            // KONDISI 1: User mencari "edukasi rendah"
-            if (userMessage.toLowerCase().includes("edukasi rendah")) {
+            const daftarDesa = Object.keys(mapData);
+            let kecamatanDitemukan = new Set();
+            let desaDitemukan = new Set();
+
+            // Deteksi penyebutan Kecamatan ATAU Desa
+            daftarDesa.forEach(desa => {
+                let namaKec = mapData[desa].Kecamatan.toLowerCase();
+                if (textCombined.includes(namaKec)) kecamatanDitemukan.add(mapData[desa].Kecamatan);
+                if (textCombined.includes(desa)) desaDitemukan.add(desa);
+            });
+
+            // Masukkan desa-desa ke target highlight
+            daftarDesa.forEach(desa => {
+                let namaKec = mapData[desa].Kecamatan.toLowerCase();
+                if (desaDitemukan.has(desa) || textCombined.includes(namaKec)) {
+                    targetDesas.push(desa);
+                }
+            });
+
+            if (targetDesas.length > 0) {
                 isFiltering = true;
-                alertBox.innerText = `🎯 MENYOROT WILAYAH: EDUKASI RENDAH (< 25%)`;
+                let wilayahTeks = "";
+                if (kecamatanDitemukan.size > 0) {
+                    wilayahTeks = "KEC. " + Array.from(kecamatanDitemukan).join(', ').toUpperCase();
+                } else {
+                    wilayahTeks = "DESA " + Array.from(desaDitemukan).join(', ').toUpperCase();
+                }
+
+                alertBox.innerText = `🎯 MENYOROT WILAYAH: ${wilayahTeks}`;
                 hud.style.display = "block";
                 setTimeout(() => { hud.style.display = "none"; }, 8000);
-
-                for (let desa in mapData) {
-                    if (mapData[desa].Persen_Edukasi < 25.0) {
-                        targetDesas.push(desa);
-                    }
-                }
-            } 
-            // KONDISI 2: User atau AI menyebut desa spesifik
-            else {
-                const daftarDesa = Object.keys(mapData);
-                daftarDesa.forEach(desa => {
-                    if (textCombined.includes(desa)) {
-                        targetDesas.push(desa);
-                    }
-                });
-
-                if (targetDesas.length > 0) {
-                    isFiltering = true;
-                    // Tampilkan notifikasi di layar
-                    alertBox.innerText = `🎯 MENYOROT WILAYAH: ${targetDesas.join(', ').toUpperCase()}`;
-                    hud.style.display = "block";
-                    setTimeout(() => { hud.style.display = "none"; }, 8000);
-                }
             }
 
-            // TERAPKAN EFEK WARNA PADA PETA
             if (isFiltering) {
                 allPaths.forEach(path => {
                     let isTarget = false;
                     targetDesas.forEach(target => {
-                        if (path.classList.contains('desa-' + target)) {
-                            isTarget = true;
-                        }
+                        if (path.classList.contains('desa-' + target)) isTarget = true;
                     });
 
                     if (isTarget) {
                         path.style.fillOpacity = 0.9;
                         path.style.strokeWidth = "3px";
-                        path.style.fill = ""; 
                     } else {
-                        // Redupkan daerah lainnya
                         path.style.fillOpacity = 0.1; 
                         path.style.fill = "#555555"; 
                         path.style.strokeWidth = "1px";
@@ -209,7 +176,6 @@
             if (!message) return;
 
             const chatBox = document.getElementById("chat-box");
-            
             chatBox.innerHTML += `<div class="chat-msg user-msg">${message}</div>`;
             inputField.value = "";
             chatBox.scrollTop = chatBox.scrollHeight;
@@ -226,14 +192,9 @@
             .then(response => response.json())
             .then(data => {
                 document.getElementById(loadingId).remove();
-                
-                // MENGGUNAKAN MARKED.JS UNTUK MERAPIKAN MARKDOWN AI
                 const formattedReply = marked.parse(data.reply);
-                
                 chatBox.innerHTML += `<div class="chat-msg ai-msg"><b>Asisten BPBD:</b><br>${formattedReply}</div>`;
                 chatBox.scrollTop = chatBox.scrollHeight;
-                
-                // Panggil fungsi efek peta
                 triggerMapEffect(data.reply, message);
             })
             .catch(error => {
