@@ -1,34 +1,97 @@
-// Tangkap data dari Flask backend
-        const mapData = {{ data_dict | tojson | safe }};
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard Peta Interaktif & Chat BPBD</title>
+    
+    <!-- Library untuk memproses Markdown dari Bot -->
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 
-        function triggerMapEffect(aiText, userMessage) {
-            userMessage = userMessage || "";
-            aiText = aiText || "";
+    <style>
+        * { box-sizing: border-box; }
+        body { font-family: Arial, sans-serif; display: flex; margin: 0; height: 100vh; }
+        
+        /* Area Peta */
+        #map-container { flex: 2; position: relative; background: #eef2f3; padding: 20px; display: flex; align-items: center; justify-content: center; }
+        #hud { display: none; position: absolute; top: 20px; left: 50%; transform: translateX(-50%); background: rgba(0, 0, 0, 0.8); color: #fff; padding: 10px 20px; border-radius: 8px; font-weight: bold; z-index: 10; }
+        
+        /* Dummy Peta SVG */
+        svg { width: 100%; max-height: 80vh; }
+        path { transition: all 0.3s ease; stroke: #fff; stroke-width: 1px; fill: #555555; cursor: pointer; }
+        path:hover { fill-opacity: 0.7; }
 
-            let textCombined = (userMessage + " " + aiText).toLowerCase();
-            const hud = document.getElementById("hud-overlay");
-            const alertBox = document.getElementById("target-alert");
-            
-            const mapIframe = document.querySelector('.map-container iframe');
-            let docToSearch = document; 
-            
-            if (mapIframe) {
-                docToSearch = mapIframe.contentDocument || mapIframe.contentWindow.document;
-            }
+        /* Area Chat */
+        #chat-container { flex: 1; border-left: 2px solid #ccc; display: flex; flex-direction: column; background: #fff; }
+        #chat-box { flex-grow: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 10px; }
+        
+        /* Bubble Chat */
+        .user-msg { align-self: flex-end; background: #d1e7dd; padding: 10px 15px; border-radius: 15px 15px 0 15px; max-width: 80%; }
+        .bot-msg { align-self: flex-start; background: #f8d7da; padding: 10px 15px; border-radius: 15px 15px 15px 0; max-width: 80%; }
+        .loading-msg { align-self: flex-start; color: #6c757d; font-style: italic; font-size: 0.9em; }
+        .error-msg { align-self: flex-start; color: red; font-weight: bold; }
 
-            // PERUBAHAN: Menyeleksi elemen desa
-            const allPaths = docToSearch.querySelectorAll('.desa-item');
-            
-            // FITUR RESET
-            if (textCombined.includes("reset") || textCombined.includes("kembalikan") || textCombined.includes("awal")) {
+        /* Input Area */
+        .input-area { display: flex; padding: 15px; border-top: 1px solid #ccc; background: #f1f1f1; }
+        #user-input { flex-grow: 1; padding: 10px; border: 1px solid #ccc; border-radius: 5px; outline: none; }
+        button { padding: 10px 15px; margin-left: 10px; background: #0d6efd; color: white; border: none; border-radius: 5px; cursor: pointer; font-weight: bold; }
+        button:hover { background: #0b5ed7; }
+    </style>
+</head>
+<body>
+
+    <!-- BAGIAN KIRI: PETA -->
+    <div id="map-container">
+        <div id="hud">
+            <span id="alert-box"></span>
+        </div>
+        
+        <!-- Contoh Dummy Peta SVG (Hanya untuk ilustrasi visual) -->
+        <svg viewBox="0 0 500 500">
+            <!-- Menambahkan class "desa-nama" sesuai logika JS -->
+            <path d="M100,100 L250,100 L250,250 L100,250 Z" class="desa-nyenang" title="Nyenang"></path>
+            <path d="M260,100 L410,100 L410,250 L260,250 Z" class="desa-sukamaju" title="Sukamaju"></path>
+            <path d="M100,260 L250,260 L250,410 L100,410 Z" class="desa-cibodas" title="Cibodas"></path>
+        </svg>
+    </div>
+
+    <!-- BAGIAN KANAN: CHATBOT -->
+    <div id="chat-container">
+        <div id="chat-box">
+            <div class="bot-msg"><strong>Asisten BPBD:</strong><br>Halo! Ketik nama desa (misal: Nyenang) atau ketik "edukasi rendah" untuk memfilter peta. Ketik "reset" untuk mengembalikan peta.</div>
+        </div>
+        <div class="input-area">
+            <input type="text" id="user-input" placeholder="Ketik pesan di sini...">
+            <button onclick="sendMessage()">Kirim</button>
+        </div>
+    </div>
+
+    <!-- SCRIPT JAVASCRIPT -->
+    <script>
+        // DUMMY DATA PETA (Sesuaikan dengan data asli dari Backend Flask/JSON kamu)
+        const mapData = {
+            "nyenang": { Persen_Edukasi: 20.5 },    // Di bawah 25 (Edukasi Rendah)
+            "sukamaju": { Persen_Edukasi: 35.0 },   // Di atas 25
+            "cibodas": { Persen_Edukasi: 15.2 }     // Di bawah 25 (Edukasi Rendah)
+        };
+
+        // FUNGSI EFEK PETA
+        function triggerMapEffect(botReply, userMessage) {
+            const textCombined = (botReply + " " + userMessage).toLowerCase();
+            const alertBox = document.getElementById("alert-box");
+            const hud = document.getElementById("hud");
+            const allPaths = document.querySelectorAll("path");
+
+            // LOGIKA KEMBALIKAN PETA KE NORMAL
+            if (userMessage.toLowerCase().includes("normal") || userMessage.toLowerCase().includes("reset")) {
                 alertBox.innerText = `🔄 PETA DIKEMBALIKAN KE NORMAL`;
                 hud.style.display = "block";
                 setTimeout(() => { hud.style.display = "none"; }, 4000);
                 
                 allPaths.forEach(path => {
-                    path.style.fillOpacity = ""; 
-                    path.style.fill = ""; 
-                    path.style.strokeWidth = "";
+                    path.style.fillOpacity = "";
+                    path.style.fill = "#555555";
+                    path.style.strokeWidth = "1px";
                 });
                 return;
             }
@@ -36,31 +99,31 @@
             let targetDesas = [];
             let isFiltering = false;
 
+            // LOGIKA FILTER EDUKASI RENDAH
             if (userMessage.toLowerCase().includes("edukasi rendah")) {
                 isFiltering = true;
                 alertBox.innerText = `🎯 MENYOROT DESA: EDUKASI RENDAH (< 25%)`;
                 hud.style.display = "block";
                 setTimeout(() => { hud.style.display = "none"; }, 8000);
-
+                
                 for (let desa in mapData) {
                     if (mapData[desa].Persen_Edukasi < 25.0) {
                         targetDesas.push(desa);
                     }
                 }
-            } 
-            else {
+            } else {
+                // PENCARIAN NAMA DESA
                 const daftarDesa = Object.keys(mapData);
                 daftarDesa.forEach(desa => {
-                    if (textCombined.includes(desa)) {
+                    if (textCombined.includes(desa.toLowerCase())) {
                         targetDesas.push(desa);
                     }
                 });
 
                 if (targetDesas.length > 0) {
                     isFiltering = true;
-                    // Tampilkan maksimal 3 nama desa di alert agar UI tidak kepanjangan
                     let displayNames = targetDesas.slice(0, 3).join(', ').toUpperCase();
-                    if(targetDesas.length > 3) displayNames += " DLL";
+                    if (targetDesas.length > 3) displayNames += " DLL";
                     
                     alertBox.innerText = `🎯 MENYOROT DESA: ${displayNames}`;
                     hud.style.display = "block";
@@ -73,7 +136,6 @@
                 allPaths.forEach(path => {
                     let isTarget = false;
                     targetDesas.forEach(target => {
-                        // PERUBAHAN: Deteksi prefix desa-
                         if (path.classList.contains('desa-' + target)) {
                             isTarget = true;
                         }
@@ -82,32 +144,35 @@
                     if (isTarget) {
                         path.style.fillOpacity = 0.9;
                         path.style.strokeWidth = "3px";
-                        path.style.fill = ""; 
+                        path.style.fill = "#ff4d4d"; // Warna merah agar kontras saat disorot
                     } else {
-                        // Redupkan daerah lainnya
-                        path.style.fillOpacity = 0.1; 
-                        path.style.fill = "#555555"; 
+                        path.style.fillOpacity = 0.1;
+                        path.style.fill = "#555555";
                         path.style.strokeWidth = "1px";
                     }
                 });
             }
         }
 
+        // FUNGSI KIRIM PESAN KE API
         function sendMessage() {
             const inputField = document.getElementById("user-input");
-            const message = inputField.value;
+            const message = inputField.value.trim();
             if (!message) return;
 
             const chatBox = document.getElementById("chat-box");
             
-            chatBox.innerHTML += `<div class="chat-msg user-msg">${message}</div>`;
+            // 1. Tampilkan pesan user
+            chatBox.insertAdjacentHTML('beforeend', `<div class="user-msg">${message}</div>`);
             inputField.value = "";
             chatBox.scrollTop = chatBox.scrollHeight;
 
+            // 2. Buat ID loading dan tampilkan
             const loadingId = "load-" + Date.now();
-            chatBox.innerHTML += `<div id="${loadingId}" class="loading-msg">[SISTEM] Memindai database level desa...</div>`;
+            chatBox.insertAdjacentHTML('beforeend', `<div id="${loadingId}" class="loading-msg">[SISTEM] Memindai database level desa...</div>`);
             chatBox.scrollTop = chatBox.scrollHeight;
 
+            // 3. Panggil API Chat (Flask/Node.js)
             fetch('/api/chat', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -115,24 +180,35 @@
             })
             .then(response => response.json())
             .then(data => {
-                document.getElementById(loadingId).remove();
+                // 4. Hapus tulisan loading
+                const loadingElement = document.getElementById(loadingId);
+                if (loadingElement) loadingElement.remove();
                 
+                // 5. Tampilkan balasan Bot
                 const formattedReply = marked.parse(data.reply);
-                
-                chatBox.innerHTML += `<div class="chat-msg ai-msg"><b>Asisten BPBD:</b><br>${formattedReply}</div>`;
+                chatBox.insertAdjacentHTML('beforeend', `<div class="bot-msg"><strong>Asisten BPBD:</strong><br>${formattedReply}</div>`);
                 chatBox.scrollTop = chatBox.scrollHeight;
                 
+                // 6. Jalankan efek peta
                 triggerMapEffect(data.reply, message);
             })
             .catch(error => {
-                document.getElementById(loadingId).remove();
-                chatBox.innerHTML += `<div class="chat-msg" style="color:red;">[ERROR] Koneksi server terputus.</div>`;
+                // Hapus loading dan tampilkan error jika server mati
+                const loadingElement = document.getElementById(loadingId);
+                if (loadingElement) loadingElement.remove();
+                
+                chatBox.insertAdjacentHTML('beforeend', `<div class="error-msg">[ERROR] Koneksi server terputus. Pastikan server Flask/NodeJS menyala.</div>`);
+                chatBox.scrollTop = chatBox.scrollHeight;
             });
         }
 
+        // FUNGSI ENTER UNTUK MENGIRIM PESAN
         document.getElementById("user-input").addEventListener("keypress", function(event) {
             if (event.key === "Enter") {
                 event.preventDefault();
                 sendMessage();
             }
         });
+    </script>
+</body>
+</html>
